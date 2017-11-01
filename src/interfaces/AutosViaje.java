@@ -620,6 +620,8 @@ public class AutosViaje extends javax.swing.JFrame {
 
             }
         ));
+        tbl_Autos.getTableHeader().setResizingAllowed(false);
+        tbl_Autos.getTableHeader().setReorderingAllowed(false);
         jScrollPane1.setViewportView(tbl_Autos);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
