@@ -8,6 +8,10 @@ import java.sql.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.JOptionPane;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
+import javax.swing.event.TableModelEvent;
+import javax.swing.event.TableModelListener;
 import javax.swing.table.DefaultTableModel;
 
 /**
@@ -26,6 +30,66 @@ public class IngresoUsuarios extends javax.swing.JFrame {
         botonesInicio();
         txtBloqueo();
         cargarTablaUsuarios();
+        lbl_ErrorClaves.setVisible(false);
+
+        tbl_Usuarios.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
+
+            @Override
+            public void valueChanged(ListSelectionEvent e) {
+                if (tbl_Usuarios.getSelectedRow() != -1) {
+                    int fila = tbl_Usuarios.getSelectedRow();
+                    String clave4 = desencriptarClave(tbl_Usuarios.getValueAt(fila, 4).toString().trim());
+
+                    txt_CedulaUsu.setText(tbl_Usuarios.getValueAt(fila, 0).toString().trim());
+                    txt_NombreUsu.setText(tbl_Usuarios.getValueAt(fila, 1).toString().trim());
+                    txt_ApellidoUsu.setText(tbl_Usuarios.getValueAt(fila, 2).toString().trim());
+                    txt_PerfilUsu.setText(tbl_Usuarios.getValueAt(fila, 3).toString().trim());
+                    txt_ClaveUsu.setText(clave4);
+                    txt_ConfirmacionClaveUsu.setText(clave4);
+
+                    txtDesbloqueo();
+                    txt_CedulaUsu.setEnabled(false);
+                    botonesActualizar();
+                    bonotesBorrar();
+                }
+            }
+        });
+
+        model.addTableModelListener(new TableModelListener() {
+
+            @Override
+            public void tableChanged(TableModelEvent e) {
+                if (e.getType() == TableModelEvent.UPDATE) {
+                    int columna = e.getColumn();
+                    int fila = e.getLastRow();
+                    String nombreColumna = null;
+
+                    if (columna == 1) {
+                        nombreColumna = "USU_NOMBRE";
+                    } else if (columna == 2) {
+                        nombreColumna = "USU_APELLIDO";
+                    } else if (columna == 3) {
+                        nombreColumna = "USU_PERFIL";
+                    } else if (columna == 4) {
+                        nombreColumna = "USU_CLAVE";
+                    }
+                    String sql = "update usuarios set " + nombreColumna + "='" + tbl_Usuarios.getValueAt(fila, columna) + "'where USU_CEDULA='" + tbl_Usuarios.getValueAt(fila, 0) + "'";
+                    conexionViaje cc = new conexionViaje();
+                    Connection cn = cc.conectar();
+                    PreparedStatement pst;
+                    try {
+                        pst = cn.prepareStatement(sql);
+                        pst.executeUpdate();;
+                    } catch (SQLException ex) {
+                    }
+
+                }
+
+
+            }
+        });
+
+
     }
 
     public void cargarTablaUsuarios() {
@@ -36,7 +100,7 @@ public class IngresoUsuarios extends javax.swing.JFrame {
 
             @Override
             public boolean isCellEditable(int row, int column) { //Bloquear la primera columna Clave primaria 
-                if (column == 0) {
+                if (column == 0 || column == 4) {
                     return false;
                 }
                 return true;
@@ -107,7 +171,7 @@ public class IngresoUsuarios extends javax.swing.JFrame {
                     psd.setString(3, USU_APELLIDO);
                     psd.setString(4, USU_PERFIL);
                     psd.setString(5, USU_CLAVE);
-
+                    lbl_ErrorClaves.setVisible(false);
 
                     int n = psd.executeUpdate();
 
@@ -124,15 +188,35 @@ public class IngresoUsuarios extends javax.swing.JFrame {
                     JOptionPane.showMessageDialog(
                             null, ex);
                 }
-            }else{
-            JOptionPane.showMessageDialog(null, "Clave no coincide");
-            txt_ClaveUsu.setText("");
-            txt_ConfirmacionClaveUsu.setText("");
-            txt_ClaveUsu.requestFocus(); 
+            } else {
+                lbl_ErrorClaves.setVisible(true);
+                txt_ClaveUsu.setText("");
+                txt_ConfirmacionClaveUsu.setText("");
+                txt_ClaveUsu.requestFocus();
             }
 
         }
 
+    }
+
+    public String desencriptarClave(String texto) {
+        String tabla = "abcdefghijklmnñopqrstuvwxyzáéíóúABCDEFGHIJKLMNÑOPQRSTUVWXYZÁÉÍÓÚ1234567890.,;_:+-*/ @$#¿?!Â¡=()[]{}\\\"";
+        int clave = 6;
+
+        String resultado = "";
+
+        for (int i = 0; i < texto.length(); i++) {
+
+            int pos = tabla.indexOf(texto.charAt(i));
+            if ((pos - clave) < 0) {
+                resultado += tabla.charAt((pos - clave) + tabla.length());
+            } else {
+                resultado += tabla.charAt(pos - clave);
+            }
+
+        }
+
+        return resultado;
     }
 
     public String encriptarClave(String texto) {
@@ -154,7 +238,66 @@ public class IngresoUsuarios extends javax.swing.JFrame {
         return resultado;
     }
 
-  
+    public void actualizar() {
+        String clav = String.valueOf(txt_ClaveUsu.getPassword());
+        String clav2 = String.valueOf(txt_ConfirmacionClaveUsu.getPassword());
+        if (clav.equals(clav2)) {
+            conexionViaje cc = new conexionViaje();
+            Connection cn = cc.conectar();
+            String claveAct = encriptarClave(clav);
+            String sql = "";
+            sql = "update usuarios set "
+                    + "USU_NOMBRE ='" + txt_NombreUsu.getText() + "' , "
+                    + "USU_APELLIDO ='" + txt_ApellidoUsu.getText() + "' , "
+                    + "USU_PERFIL ='" + txt_PerfilUsu.getText() + "' , "
+                    + "USU_CLAVE ='" + claveAct + "' "
+                    + "where USU_CEDULA ='" + txt_CedulaUsu.getText() + "'";
+            try {
+                PreparedStatement psd = cn.prepareStatement(sql);
+                int n = psd.executeUpdate();
+
+                if (n > 0) {
+                    JOptionPane.showMessageDialog(null, "Se actualizo el registro correctamente");
+                    cargarTablaUsuarios();
+                    txtLimpiar();
+                    txtBloqueo();
+                    botonesInicio();
+                }
+
+
+            } catch (SQLException ex) {
+                JOptionPane.showMessageDialog(null, ex);
+            }
+
+        } else {
+            JOptionPane.showMessageDialog(null, "Claves no coinciden");
+            txt_ClaveUsu.setText("");
+            txt_ConfirmacionClaveUsu.setText("");
+            txt_ClaveUsu.requestFocus();
+
+        }
+
+    }
+
+    public void borrar() {
+        conexionViaje cc = new conexionViaje();
+        Connection cn = cc.conectar();
+        String sql = "";
+        sql = "delete from usuarios where USU_CEDULA ='" + txt_CedulaUsu.getText() + "'";
+        //sql = "update auto set ESTADO ='" + 1 + "' where AUT_PLACA ='" + txt_Placa.getText() + "'";
+        try {
+            PreparedStatement psd = cn.prepareStatement(sql);
+            psd.executeUpdate();
+            cargarTablaUsuarios();
+            txtBloqueo();
+            botonesInicio();
+            txtLimpiar();
+        } catch (SQLException ex) {
+            JOptionPane.showMessageDialog(null, ex);
+        }
+
+
+    }
 
     public void txtLimpiar() {
         txt_CedulaUsu.setText("");
@@ -163,6 +306,24 @@ public class IngresoUsuarios extends javax.swing.JFrame {
         txt_PerfilUsu.setText("");
         txt_ClaveUsu.setText("");
         txt_ConfirmacionClaveUsu.setText("");
+    }
+
+    public void botonesActualizar() {
+        btn_Nuevo.setEnabled(false);
+        btn_Guardar.setEnabled(false);
+        btn_Actualizar.setEnabled(true);
+        btn_Cancelar.setEnabled(true);
+        btn_Borrar.setEnabled(false);
+        btn_Salir.setEnabled(true);
+    }
+
+    public void bonotesBorrar() {
+        btn_Nuevo.setEnabled(false);
+        btn_Guardar.setEnabled(false);
+        btn_Actualizar.setEnabled(true);
+        btn_Cancelar.setEnabled(true);
+        btn_Borrar.setEnabled(true);
+        btn_Salir.setEnabled(true);
     }
 
     public void botonesInicio() {
@@ -224,6 +385,7 @@ public class IngresoUsuarios extends javax.swing.JFrame {
         txt_ClaveUsu = new javax.swing.JPasswordField();
         jLabel6 = new javax.swing.JLabel();
         txt_ConfirmacionClaveUsu = new javax.swing.JPasswordField();
+        lbl_ErrorClaves = new javax.swing.JLabel();
         jPanel2 = new javax.swing.JPanel();
         btn_Nuevo = new javax.swing.JButton();
         btn_Guardar = new javax.swing.JButton();
@@ -238,16 +400,22 @@ public class IngresoUsuarios extends javax.swing.JFrame {
 
         jPanel1.setBorder(javax.swing.BorderFactory.createTitledBorder("Datos"));
 
+        jLabel1.setFont(new java.awt.Font("Tahoma", 1, 12)); // NOI18N
         jLabel1.setText("Cédula:");
 
+        jLabel2.setFont(new java.awt.Font("Tahoma", 1, 12)); // NOI18N
         jLabel2.setText("Nombre:");
 
+        jLabel3.setFont(new java.awt.Font("Tahoma", 1, 12)); // NOI18N
         jLabel3.setText("Apellido:");
 
+        jLabel4.setFont(new java.awt.Font("Tahoma", 1, 12)); // NOI18N
         jLabel4.setText("Perfil:");
 
+        jLabel5.setFont(new java.awt.Font("Tahoma", 1, 12)); // NOI18N
         jLabel5.setText("Clave:");
 
+        jLabel6.setFont(new java.awt.Font("Tahoma", 1, 12)); // NOI18N
         jLabel6.setText("Confirmación \nClave:");
 
         txt_ConfirmacionClaveUsu.addActionListener(new java.awt.event.ActionListener() {
@@ -256,28 +424,35 @@ public class IngresoUsuarios extends javax.swing.JFrame {
             }
         });
 
+        lbl_ErrorClaves.setFont(new java.awt.Font("Tahoma", 0, 12)); // NOI18N
+        lbl_ErrorClaves.setForeground(new java.awt.Color(204, 0, 0));
+        lbl_ErrorClaves.setText("Las claves no coinciden. ¿Quieres volver a intentarlo?");
+
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
         jPanel1.setLayout(jPanel1Layout);
         jPanel1Layout.setHorizontalGroup(
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel1Layout.createSequentialGroup()
                 .addGap(10, 10, 10)
-                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addComponent(jLabel6, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jLabel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jLabel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jLabel3, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jLabel4, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jLabel5, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addGap(10, 10, 10)
-                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addComponent(txt_ConfirmacionClaveUsu, javax.swing.GroupLayout.DEFAULT_SIZE, 174, Short.MAX_VALUE)
-                    .addComponent(txt_ClaveUsu)
-                    .addComponent(txt_PerfilUsu)
-                    .addComponent(txt_ApellidoUsu)
-                    .addComponent(txt_NombreUsu)
-                    .addComponent(txt_CedulaUsu))
-                .addContainerGap(33, Short.MAX_VALUE))
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(lbl_ErrorClaves)
+                    .addGroup(jPanel1Layout.createSequentialGroup()
+                        .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                            .addComponent(jLabel6, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(jLabel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(jLabel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(jLabel3, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(jLabel4, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(jLabel5, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                        .addGap(10, 10, 10)
+                        .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                            .addComponent(txt_ConfirmacionClaveUsu, javax.swing.GroupLayout.DEFAULT_SIZE, 174, Short.MAX_VALUE)
+                            .addComponent(txt_ClaveUsu)
+                            .addComponent(txt_PerfilUsu)
+                            .addComponent(txt_ApellidoUsu)
+                            .addComponent(txt_NombreUsu)
+                            .addComponent(txt_CedulaUsu))))
+                .addContainerGap(34, Short.MAX_VALUE))
         );
         jPanel1Layout.setVerticalGroup(
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -312,10 +487,10 @@ public class IngresoUsuarios extends javax.swing.JFrame {
                     .addGroup(jPanel1Layout.createSequentialGroup()
                         .addGap(7, 7, 7)
                         .addComponent(txt_ConfirmacionClaveUsu, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                .addGap(18, 18, 18)
+                .addComponent(lbl_ErrorClaves)
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
-
-        jLabel6.getAccessibleContext().setAccessibleName("Confirmación \nClave:");
 
         jPanel2.setBorder(javax.swing.BorderFactory.createTitledBorder("Opciones"));
 
@@ -343,21 +518,41 @@ public class IngresoUsuarios extends javax.swing.JFrame {
         btn_Actualizar.setText("Actualizar");
         btn_Actualizar.setHorizontalAlignment(javax.swing.SwingConstants.LEADING);
         btn_Actualizar.setVerticalAlignment(javax.swing.SwingConstants.BOTTOM);
+        btn_Actualizar.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btn_ActualizarActionPerformed(evt);
+            }
+        });
 
         btn_Cancelar.setIcon(new javax.swing.ImageIcon(getClass().getResource("/imagenes/cancelar.png"))); // NOI18N
         btn_Cancelar.setText("Cancelar");
         btn_Cancelar.setHorizontalAlignment(javax.swing.SwingConstants.LEADING);
         btn_Cancelar.setVerticalAlignment(javax.swing.SwingConstants.BOTTOM);
+        btn_Cancelar.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btn_CancelarActionPerformed(evt);
+            }
+        });
 
         btn_Borrar.setIcon(new javax.swing.ImageIcon(getClass().getResource("/imagenes/borrar.png"))); // NOI18N
         btn_Borrar.setText("Borrar");
         btn_Borrar.setHorizontalAlignment(javax.swing.SwingConstants.LEADING);
         btn_Borrar.setVerticalAlignment(javax.swing.SwingConstants.BOTTOM);
+        btn_Borrar.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btn_BorrarActionPerformed(evt);
+            }
+        });
 
         btn_Salir.setIcon(new javax.swing.ImageIcon(getClass().getResource("/imagenes/salir.png"))); // NOI18N
         btn_Salir.setText("Salir");
         btn_Salir.setHorizontalAlignment(javax.swing.SwingConstants.LEADING);
         btn_Salir.setVerticalAlignment(javax.swing.SwingConstants.BOTTOM);
+        btn_Salir.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btn_SalirActionPerformed(evt);
+            }
+        });
 
         javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
         jPanel2.setLayout(jPanel2Layout);
@@ -403,6 +598,8 @@ public class IngresoUsuarios extends javax.swing.JFrame {
 
             }
         ));
+        tbl_Usuarios.getTableHeader().setResizingAllowed(false);
+        tbl_Usuarios.getTableHeader().setReorderingAllowed(false);
         jScrollPane1.setViewportView(tbl_Usuarios);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
@@ -414,9 +611,8 @@ public class IngresoUsuarios extends javax.swing.JFrame {
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(layout.createSequentialGroup()
                         .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(27, 27, 27)
-                        .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(0, 0, Short.MAX_VALUE))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 17, Short.MAX_VALUE)
+                        .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                     .addComponent(jScrollPane1))
                 .addContainerGap())
         );
@@ -449,6 +645,33 @@ public class IngresoUsuarios extends javax.swing.JFrame {
         txtDesbloqueo();
         botonesNuevo();
     }//GEN-LAST:event_btn_NuevoActionPerformed
+
+    private void btn_ActualizarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btn_ActualizarActionPerformed
+        // TODO add your handling code here:
+        actualizar();
+    }//GEN-LAST:event_btn_ActualizarActionPerformed
+
+    private void btn_CancelarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btn_CancelarActionPerformed
+        // TODO add your handling code here:
+        txtLimpiar();
+        txtBloqueo();
+        botonesInicio();
+    }//GEN-LAST:event_btn_CancelarActionPerformed
+
+    private void btn_BorrarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btn_BorrarActionPerformed
+        // TODO add your handling code here:
+        int dialogButton = JOptionPane.YES_NO_OPTION;
+        int n = JOptionPane.showConfirmDialog(null, "Esta seguro que desea borrar el dato", "Aviso", dialogButton);
+
+        if (n == JOptionPane.YES_OPTION) {
+            borrar();
+        }
+    }//GEN-LAST:event_btn_BorrarActionPerformed
+
+    private void btn_SalirActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btn_SalirActionPerformed
+        // TODO add your handling code here:
+        this.dispose();
+    }//GEN-LAST:event_btn_SalirActionPerformed
 
     /**
      * @param args the command line arguments
@@ -507,6 +730,7 @@ public class IngresoUsuarios extends javax.swing.JFrame {
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;
     private javax.swing.JScrollPane jScrollPane1;
+    private javax.swing.JLabel lbl_ErrorClaves;
     private javax.swing.JTable tbl_Usuarios;
     private javax.swing.JTextField txt_ApellidoUsu;
     private javax.swing.JTextField txt_CedulaUsu;

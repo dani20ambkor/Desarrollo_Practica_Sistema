@@ -34,7 +34,7 @@ public class AutosViaje extends javax.swing.JInternalFrame {
 
     public AutosViaje() {
         initComponents();
-       
+
         botonesInicio();
         txtBloqueo();
         cargarTablaAutos("");
@@ -298,28 +298,20 @@ public class AutosViaje extends javax.swing.JInternalFrame {
         conexionViaje cc = new conexionViaje();
         Connection cn = cc.conectar();
         String sql = "";
-        String sql2 = "";
-        String sql3 = "";
-        String sql4 = "";
-        String sql5 = "";
-        sql = "update auto set AUT_MARCA ='" + txt_Marca.getText() + "' where AUT_PLACA ='" + txt_Placa.getText() + "'";
-        sql2 = "update auto set AUT_MODELO ='" + txt_Modelo.getText() + "' where AUT_PLACA ='" + txt_Placa.getText() + "'";
-        sql3 = "update auto set AUT_COLOR ='" + txt_Color.getText() + "' where AUT_PLACA ='" + txt_Placa.getText() + "'";
-        sql4 = "update auto set AUT_ANIO ='" + jy_Anio_Auto.getYear() + "' where AUT_PLACA ='" + txt_Placa.getText() + "'";
-        sql5 = "update auto set AUT_DESCRIPCION ='" + txt_Descripcion.getText() + "' where AUT_PLACA ='" + txt_Placa.getText() + "'";
+
+        sql = "update auto set "
+                + "AUT_MARCA ='" + txt_Marca.getText() + "' , "
+                + "AUT_MODELO ='" + txt_Modelo.getText() + "' , "
+                + "AUT_COLOR ='" + txt_Color.getText() + "' , "
+                + "AUT_ANIO ='" + jy_Anio_Auto.getYear() + "' , "
+                + "AUT_DESCRIPCION ='" + txt_Descripcion.getText() + "' "
+                + "where AUT_PLACA ='" + txt_Placa.getText() + "'";
 
         try {
             PreparedStatement psd = cn.prepareStatement(sql);
-            PreparedStatement psd2 = cn.prepareStatement(sql2);
-            PreparedStatement psd3 = cn.prepareStatement(sql3);
-            PreparedStatement psd4 = cn.prepareStatement(sql4);
-            PreparedStatement psd5 = cn.prepareStatement(sql5);
             int n = psd.executeUpdate();
-            int o = psd2.executeUpdate();
-            int p = psd3.executeUpdate();
-            int q = psd4.executeUpdate();
-            int r = psd5.executeUpdate();
-            if (n > 0 || o > 0 || p > 0 || q > 0 || r > 0) {
+
+            if (n > 0) {
                 JOptionPane.showMessageDialog(null, "Se actualizo el registro correctamente");
                 cargarTablaAutos("");
                 txtLimpiar();
